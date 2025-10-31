@@ -84,16 +84,16 @@ runs:
           const releaseMarkerIndex = prBody.indexOf(releaseMarker);
 
           if (releaseMarkerIndex === -1) {
-            body += `\n\n---\n\n${releaseMarker}\n${newPreviewLine}`;
+            prBody += `\n\n---\n\n${releaseMarker}\n${newPreviewLine}`;
           } else {
             // Find end of the marker line
-            let afterMarkerIndex = body.indexOf('\n', releaseMarkerIndex);
+            let afterMarkerIndex = prBody.indexOf('\n', releaseMarkerIndex);
             if (afterMarkerIndex === -1) {
               // Marker is at end of body
-              body += `\n${newPreviewLine}`;
+              prBody += `\n${newPreviewLine}`;
             } else {
               afterMarkerIndex += 1; // Position directly after newline
-              const tail = body.substring(afterMarkerIndex);
+              const tail = prBody.substring(afterMarkerIndex);
               const lines = tail.split('\n');
               const previewLinePattern = /^\s*(~~)?👉 .*Preview \d+/;
               let lastPreviewIdx = -1;
@@ -106,11 +106,11 @@ runs:
 
               if (lastPreviewIdx === -1) {
                 // No previews: insert directly after marker
-                body = body.slice(0, afterMarkerIndex) + newPreviewLine + '\n' + tail;
+                prBody = prBody.slice(0, afterMarkerIndex) + newPreviewLine + '\n' + tail;
               } else {
                 const before = lines.slice(0, lastPreviewIdx + 1).join('\n');
                 const after = lines.slice(lastPreviewIdx + 1).join('\n');
-                body = body.slice(0, afterMarkerIndex) +
+                prBody = prBody.slice(0, afterMarkerIndex) +
                        before + '\n' +
                        newPreviewLine + '\n' +
                        after;
