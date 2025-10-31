@@ -83,11 +83,11 @@ runs:
 
           const releaseMarkerIndex = prBody.indexOf(releaseMarker);
 
-          if (markerIndex === -1) {
+          if (releaseMarkerIndex === -1) {
             body += `\n\n---\n\n${releaseMarker}\n${newPreviewLine}`;
           } else {
             // Find end of the marker line
-            let afterMarkerIndex = body.indexOf('\n', markerIndex);
+            let afterMarkerIndex = body.indexOf('\n', releaseMarkerIndex);
             if (afterMarkerIndex === -1) {
               // Marker is at end of body
               body += `\n${newPreviewLine}`;
