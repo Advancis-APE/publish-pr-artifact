@@ -83,19 +83,39 @@ runs:
 
           const releaseMarkerIndex = prBody.indexOf(releaseMarker);
 
-          if (releaseMarkerIndex !== -1) {
-            const afterMarker = prBody.substring(releaseMarkerIndex);
-            const previewPattern = /(?:~~)?.*(?:\[Preview (\d+)\]|Preview (\d+))/g;
-            const matches = [...afterMarker.matchAll(previewPattern)];
-            if (matches.length > 0) {
-              const lastMatch = matches[matches.length - 1];
-              const lastPreviewEndIndex = releaseMarkerIndex + lastMatch.index + lastMatch[0].length;
-              prBody = prBody.substring(0, lastPreviewEndIndex) + '\n' + newPreviewLine + prBody.substring(lastPreviewEndIndex);
-            } else {
-              prBody = prBody.substring(0, releaseMarkerIndex + releaseMarker.length) + '\n' + newPreviewLine + prBody.substring(releaseMarkerIndex + releaseMarker.length);
-            }
+          if (markerIndex === -1) {
+            body += `\n\n---\n\n${releaseMarker}\n${newPreviewLine}`;
           } else {
-            prBody += `\n\n---\n\n${releaseMarker}\n${newPreviewLine}`;
+            // Find end of the marker line
+            let afterMarkerIndex = body.indexOf('\n', markerIndex);
+            if (afterMarkerIndex === -1) {
+              // Marker is at end of body
+              body += `\n${newPreviewLine}`;
+            } else {
+              afterMarkerIndex += 1; // Position directly after newline
+              const tail = body.substring(afterMarkerIndex);
+              const lines = tail.split('\n');
+              const previewLinePattern = /^\s*(~~)?👉 .*Preview \d+/;
+              let lastPreviewIdx = -1;
+
+              for (let i = 0; i < lines.length; i++) {
+                if (previewLinePattern.test(lines[i])) {
+                  lastPreviewIdx = i;
+                }
+              }
+
+              if (lastPreviewIdx === -1) {
+                // No previews: insert directly after marker
+                body = body.slice(0, afterMarkerIndex) + newPreviewLine + '\n' + tail;
+              } else {
+                const before = lines.slice(0, lastPreviewIdx + 1).join('\n');
+                const after = lines.slice(lastPreviewIdx + 1).join('\n');
+                body = body.slice(0, afterMarkerIndex) +
+                       before + '\n' +
+                       newPreviewLine + '\n' +
+                       after;
+              }
+            }
           }
 
           await github.rest.pulls.update({ owner, repo, pull_number: number, body: prBody });
