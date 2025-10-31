@@ -85,7 +85,7 @@ runs:
 
           if (releaseMarkerIndex !== -1) {
             const afterMarker = prBody.substring(releaseMarkerIndex);
-            const previewPattern = /👉 \[Preview \d+\].*$/gm;
+            const previewPattern = /(~~)?👉 \[Preview \d+\][^\n]*(~~)?/g;
             const matches = [...afterMarker.matchAll(previewPattern)];
             if (matches.length > 0) {
               const lastMatch = matches[matches.length - 1];
