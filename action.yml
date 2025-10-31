@@ -1,5 +1,5 @@
 name: publish-pr-artifact
-description: Compute artifact name, upload it, fetch artifact id
+description: Compute artifact name, upload it, fetch artifact id and update PR body
 inputs:
   github-token:
     required: true
@@ -9,19 +9,13 @@ inputs:
   artifact-path:
     required: false
     default: out
-outputs:
-  artifact-name:
-    value: ${{ steps.compute-name.outputs.artifact-name }}
-  artifact-id:
-    value: ${{ steps.get-id.outputs.artifact-id }}
+  release-marker:
+    required: false
+    default: "🎯 PR Release 🎯"
+    description: Marker im PR-Body
 runs:
   using: composite
   steps:
-    - name: Show inputs (debug)
-      shell: bash
-      run: |
-        echo "preview-number=${{ inputs.preview-number }}"
-        echo "artifact-path=${{ inputs.artifact-path }}"
     - name: Compute artifact name
       id: compute-name
       uses: actions/github-script@v7
@@ -63,3 +57,46 @@ runs:
             core.setOutput('artifact-id', artifact.id.toString());
             console.log(`Found artifact ID: ${artifact.id}`);
           }
+    - name: Update PR body
+      if: ${{ success() }}
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const { owner, repo } = context.repo;
+          const number = context.payload.pull_request.number;
+          const runId = context.runId;
+          const previewNumber = '${{ inputs.preview-number }}';
+          const artifactId = '${{ steps.get-id.outputs.artifact-id }}';
+          const artifactName = '${{ steps.compute-name.outputs.artifact-name }}';
+          const releaseMarker = '${{ inputs.release-marker }}';
+
+          let artifactLink = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+            if (artifactId) {
+              artifactLink = `https://github.com/${owner}/${repo}/actions/runs/${runId}/artifacts/${artifactId}`;
+            }
+
+          const newPreviewLine = `👉 [Preview ${previewNumber}](${artifactLink})`;
+
+          const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
+          let prBody = pr.data.body || '';
+
+          const releaseMarkerIndex = prBody.indexOf(releaseMarker);
+
+          if (releaseMarkerIndex !== -1) {
+            const afterMarker = prBody.substring(releaseMarkerIndex);
+            const previewPattern = /👉 \[Preview \d+\].*$/gm;
+            const matches = [...afterMarker.matchAll(previewPattern)];
+            if (matches.length > 0) {
+              const lastMatch = matches[matches.length - 1];
+              const lastPreviewEndIndex = releaseMarkerIndex + lastMatch.index + lastMatch[0].length;
+              prBody = prBody.substring(0, lastPreviewEndIndex) + '\n' + newPreviewLine + prBody.substring(lastPreviewEndIndex);
+            } else {
+              prBody = prBody.substring(0, releaseMarkerIndex + releaseMarker.length) + '\n' + newPreviewLine + prBody.substring(releaseMarkerIndex + releaseMarker.length);
+            }
+          } else {
+            prBody += `\n\n---\n\n${releaseMarker}\n${newPreviewLine}`;
+          }
+
+          await github.rest.pulls.update({ owner, repo, pull_number: number, body: prBody });
+          console.log('PR body updated with preview link.');
