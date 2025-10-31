@@ -1,0 +1,60 @@
+name: publish-pr-artifact
+description: Compute artifact name, upload it, fetch artifact id
+inputs:
+  github-token:
+    required: true
+  preview-number:
+    required: true
+    description: Preview number
+  artifact-path:
+    required: false
+    default: out
+outputs:
+  artifact-name:
+    value: ${{ steps.compute-name.outputs.artifact-name }}
+  artifact-id:
+    value: ${{ steps.get-id.outputs.artifact-id }}
+runs:
+  using: composite
+  steps:
+    - name: Compute artifact name
+      id: compute-name
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const prNumber = context.payload.pull_request.number;
+          const previewNumber = core.getInput('preview-number');
+          const name = `PR-${prNumber}-Preview-${previewNumber}`;
+          core.setOutput('artifact-name', name);
+          console.log(`Artifact name: ${name}`);
+    - name: Upload build output
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.compute-name.outputs.artifact-name }}
+        path: ${{ inputs.artifact-path }}
+    - name: Get artifact id
+      id: get-id
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const { owner, repo } = context.repo;
+          const run_id = context.runId;
+          const targetName = '${{ steps.compute-name.outputs.artifact-name }}';
+          async function findArtifact(retries = 5) {
+            for (let i = 0; i < retries; i++) {
+              const res = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id, per_page: 100 });
+              const artifact = res.data.artifacts.find(a => a.name === targetName);
+              if (artifact) return artifact;
+              await new Promise(r => setTimeout(r, 3000));
+            }
+            return null;
+          }
+          const artifact = await findArtifact();
+          if (!artifact) {
+            core.setFailed(`Artifact '${targetName}' not found.`);
+          } else {
+            core.setOutput('artifact-id', artifact.id.toString());
+            console.log(`Found artifact ID: ${artifact.id}`);
+          }
