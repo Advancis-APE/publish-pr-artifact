@@ -19,12 +19,14 @@ runs:
   steps:
     - name: Compute artifact name
       id: compute-name
+      env:
+        PREVIEW_NUMBER: ${{ inputs.preview-number }}
       uses: actions/github-script@v7
       with:
         github-token: ${{ inputs.github-token }}
         script: |
           const prNumber = context.payload.pull_request.number;
-          const previewNumber = core.getInput('preview-number');
+          const previewNumber = process.env.PREVIEW_NUMBER;
           const name = `PR-${prNumber}-Preview-${previewNumber}`;
           core.setOutput('artifact-name', name);
           console.log(`Artifact name: ${name}`);
