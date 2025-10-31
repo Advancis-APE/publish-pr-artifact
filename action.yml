@@ -17,16 +17,19 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Show inputs (debug)
+      shell: bash
+      run: |
+        echo "preview-number=${{ inputs.preview-number }}"
+        echo "artifact-path=${{ inputs.artifact-path }}"
     - name: Compute artifact name
       id: compute-name
-      env:
-        PREVIEW_NUMBER: ${{ inputs.preview-number }}
       uses: actions/github-script@v7
       with:
         github-token: ${{ inputs.github-token }}
         script: |
           const prNumber = context.payload.pull_request.number;
-          const previewNumber = process.env.PREVIEW_NUMBER;
+          const previewNumber = '${{ inputs.preview-number }}';
           const name = `PR-${prNumber}-Preview-${previewNumber}`;
           core.setOutput('artifact-name', name);
           console.log(`Artifact name: ${name}`);
